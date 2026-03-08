@@ -1,0 +1,71 @@
+---
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - requirement-publish:
+            contract-id: SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard
+            remap-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            remap-principals:
+              SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 8400
+            path: "./.cache/requirements/SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.clar"
+            clarity-version: 1
+      epoch: "2.0"
+    - id: 1
+      transactions:
+        - contract-publish:
+            contract-name: honeycomb-token
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 39000
+            path: contracts/honeycomb-token.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: twab-controller
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 72290
+            path: contracts/twab-controller.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: prize-pool
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 92850
+            path: contracts/prize-pool.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: auction-manager
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 74340
+            path: contracts/auction-manager.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: auth-provider
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 59230
+            path: contracts/auth-provider.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: governance
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 61300
+            path: contracts/governance.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: vault-factory
+            expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
+            cost: 62010
+            path: contracts/vault-factory.clar
+            anchor-block-only: true
+            clarity-version: 3
+      epoch: "3.0"

@@ -1,0 +1,92 @@
+---
+description: LuckyHive project rules and development guidelines
+globs: "**/*"
+---
+
+# LuckyHive Development Rules
+
+## Project Identity
+
+- **Name**: LuckyHive (never "Kismet" or "Krismet")
+- **Type**: Decentralized no-loss prize savings protocol
+- **Chain**: Stacks (Bitcoin L2)
+- **Language**: Clarity 4 (smart contracts), TypeScript (frontend)
+
+## Brand Vocabulary (ALWAYS use these terms)
+
+| Use This            | Instead of This            |
+| :------------------ | :------------------------- |
+| The Honeycomb       | Prize Pool / Vault         |
+| The Buzz Rate       | APY / Interest Rate        |
+| Worker Bees         | Claimer Bots / Automations |
+| The Queen Bee       | The Draw Winner            |
+| Storing in the Hive | Depositing                 |
+| Bees                | Users / Wallets            |
+
+## Smart Contract Rules (Clarity)
+
+1. All contracts must use Clarity 4 features (SIP-033/034)
+2. Every public function must have explicit `begin` blocks with authorization checks
+3. Use `define-constant` for all error codes with `ERR-` prefix
+4. Use `define-data-var` for mutable admin state only; prefer `define-map` for user data
+5. Implement `is-contract-owner` guard on all admin functions
+6. Use post-conditions via Clarity 4 built-ins to enforce asset protection
+7. All maps must have explicit key/value type annotations
+8. Ring buffer size for TWAB controller is fixed at u720 (30 days of 1-hour epochs)
+9. Every contract emits events via `print` for off-chain indexing
+10. No unbounded loops; use fixed-size iteration with `fold` or manual unrolling
+
+## Security Rules
+
+1. No external contract calls without `get-contract-code-hash` verification
+2. Emergency `pause` mechanism on all contracts holding user funds
+3. Timelocked admin operations (2-day delay minimum)
+4. Maximum deposit cap enforced at contract level
+5. Cooldown period between consecutive draws
+6. VRF seed must combine on-chain entropy with external oracle data
+7. All arithmetic must use checked operations (Clarity handles this natively)
+8. Principal-based access control for admin operations
+
+## Frontend Rules
+
+1. Use Next.js with App Router
+2. All blockchain calls via `@stacks/connect` and `@stacks/transactions`
+3. Brand colors: Bitcoin Orange (#F7931A), Charcoal Black (#1A1A2E), Honey Gold (#FFB800)
+4. Typography: Inter for UI, Space Grotesk for headings
+5. Dark mode is default; light mode is secondary
+6. All amounts displayed in BTC denomination with 8 decimal precision
+7. Loading states must use honeycomb skeleton animations
+8. Error messages use the "Swarm" tone (friendly, never technical jargon)
+9. Mobile-first responsive design (min-width: 320px)
+
+## Code Quality
+
+1. No emojis in code or comments
+2. Concise commit messages in past active tense
+3. All functions documented with purpose and parameter descriptions
+4. Test coverage target: 90% for smart contracts
+5. TypeScript strict mode enabled
+6. ESLint + Prettier enforced
+7. No `any` types in TypeScript
+
+## File Naming
+
+- Clarity contracts: `kebab-case.clar`
+- TypeScript files: `kebab-case.ts` or `kebab-case.tsx`
+- Test files: `*_test.ts` (Clarinet) or `*.test.ts` (frontend)
+- Constants/config: `UPPER_SNAKE_CASE` for exported constants
+
+## Git Workflow
+
+1. Branch naming: `feat/`, `fix/`, `docs/`, `refactor/` prefixes
+2. No force pushes to `main`
+3. All PRs require passing CI before merge
+4. Squash merge preferred
+
+## Architecture Principles
+
+1. Hyperstructure design: contracts should be autonomous and immutable once deployed
+2. Modularity: each contract has a single responsibility
+3. Permissionless extensibility: vault creation is open to anyone
+4. Incentivized maintenance: auctions reward anyone who triggers draws/claims
+5. No admin keys for core protocol functions; admin limited to parameter tuning
