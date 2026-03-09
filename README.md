@@ -7,8 +7,12 @@ LuckyHive is a decentralized, no-loss prize savings protocol built natively on t
 ## Core Mechanics
 
 1. **No-Loss Savings**: Users deposit STX or sBTC into the "Hive" (Prize Pool). Unlike a lottery, users never lose their principal and can withdraw at any time.
-2. **Native Yield**: The protocol routes all pooled deposits into Yield Vaults (e.g., Stacks PoX stacking) to generate base yield.
-3. **Provably Fair Draws**: Periodically, the accumulated yield from all deposits is pooled together and awarded to a single, randomly selected winner.
+2. **Native Yield**: The protocol routes all pooled deposits into Yield Vaults (e.g., Stacks PoX stacking) to generate base yield (~5% APY).
+3. **The 3-Tiered Yield Split**: The generated yield is split to align psychological incentives and ensure protocol sustainability:
+   - **The "Queen Bee" Grand Prize (1.5%)**: A single, large drawing that creates virality and leverages the magnitude effect.
+   - **"Nectar Drops" Micro-Prizes (1.5%)**: High-frequency, smaller prizes (dopamine hits) to retain smaller users and prevent "minnow churn."
+   - **"Sticky Honey" Baseline Drip (1.0%)**: A guaranteed, flat base yield distributed to _all_ depositors, transforming LuckyHive into a true DeFi savings account.
+   - **Protocol/Feeder Fee (1.0%)**: Kept by the protocol to incentivize decentralized crank callers ("feeders") and fund the DAO treasury.
 4. **Time-Weighted Average Balance (TWAB)**: A user's chance of winning is proportional to their TWAB. The longer you hold your deposit and the larger the amount, the higher your chances. This prevents gamification (depositing right before a draw).
 
 ## Architecture

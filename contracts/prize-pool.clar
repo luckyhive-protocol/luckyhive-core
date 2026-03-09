@@ -18,15 +18,24 @@
 (define-constant ERR-INVALID-WINNER (err u3008))
 (define-constant ERR-ALREADY-CLAIMED (err u3009))
 
-;; ============================================================
+;; ---------------------------------------------------------
+;; Gamification & Retention Configuration (SWOT Improvments)
+;; ---------------------------------------------------------
+(define-constant NECTAR_DROP_PERCENTAGE u45) ;; 45% of yield goes to secondary random drops
+(define-constant QUEEN_BEE_PERCENTAGE u45) ;; 45% of yield goes to the main winner
+(define-constant FEEDER_INCENTIVE_PERCENTAGE u5) ;; 5% goes to the tx-sender (gas reimbursement)
+(define-constant DAO_TREASURY_PERCENTAGE u5) ;; 5% goes to the protocol owner/DAO
+
+;; ---------------------------------------------------------
 ;; STATE
-;; ============================================================
+;; ---------------------------------------------------------
 
 (define-data-var contract-paused bool false)
 (define-data-var min-deposit uint u1000000) ;; 1 STX (u1000000 microSTX)
 (define-data-var max-deposit uint u1000000000000) ;; 1,000,000 STX cap
 (define-data-var total-deposits uint u0)
 (define-data-var total-yield uint u0)
+(define-data-var nectar-drops-reserve uint u0) ;; Reserve for secondary smaller prizes
 (define-data-var draw-counter uint u0)
 (define-data-var draw-interval uint u144) ;; ~24 hours in blocks
 (define-data-var last-draw-block uint u0)
@@ -65,7 +74,10 @@
 ;; PUBLIC: STORE IN THE HIVE (deposit)
 ;; ============================================================
 
-(define-public (store-in-hive (amount uint))
+(define-public (store-in-hive
+    (amount uint)
+    (referrer (optional principal))
+  )
   (begin
     (try! (assert-not-paused))
     (asserts! (>= amount (var-get min-deposit)) ERR-BELOW-MINIMUM)
@@ -77,10 +89,35 @@
     ;; Mint honeycomb receipt tokens
     (try! (contract-call? .honeycomb-token mint amount tx-sender))
 
-    ;; Record TWAB observation
-    (try! (contract-call? .twab-controller record-observation tx-sender
-      (+ (get-user-balance tx-sender) amount) stacks-block-height
-    ))
+    ;; Loyalty Multipliers & Referrals (Hive Invites)
+    ;; A referrer grants a 5% TWAB boost to the depositor and a 5% TWAB boost to the referrer
+    (let (
+        (time-lock-multiplier u1)
+        (base-twab-addition (* amount time-lock-multiplier))
+        (referral-boost (if (is-some referrer)
+          (/ (* base-twab-addition u5) u100)
+          u0
+        ))
+        (final-depositor-twab (+ base-twab-addition referral-boost))
+        (current-balance (get-user-balance tx-sender))
+      )
+      ;; Record Depositor TWAB observation
+      (try! (contract-call? .twab-controller record-observation tx-sender
+        (+ current-balance final-depositor-twab) stacks-block-height
+      ))
+
+      ;; Record Referrer TWAB observation if present and valid
+      (match referrer
+        referring-bee (if (and (not (is-eq referring-bee tx-sender)) (> (get-user-balance referring-bee) u0))
+          (try! (contract-call? .twab-controller record-observation referring-bee
+            (+ (get-user-balance referring-bee) referral-boost)
+            stacks-block-height
+          ))
+          true ;; Ignore self-referrals or empty referrers
+        )
+        true
+      )
+    )
 
     ;; Update state
     (let (
@@ -88,6 +125,13 @@
         (new-amount (+ (get amount current-deposit) amount))
       )
       (map-set user-deposits { user: tx-sender } { amount: new-amount })
+
+      ;; If this is the first deposit in the hive, establish the countdown
+      (if (is-eq (var-get total-deposits) u0)
+        (var-set last-draw-block stacks-block-height)
+        true
+      )
+
       (var-set total-deposits (+ (var-get total-deposits) amount))
 
       (print {
@@ -161,15 +205,30 @@
     (let (
         (draw-id (+ (var-get draw-counter) u1))
         (prize-amount (var-get total-yield))
+        ;; Split yield based on Gamification Strategy
+        (queen-bee-prize (/ (* prize-amount QUEEN_BEE_PERCENTAGE) u100))
+        (nectar-drops (/ (* prize-amount NECTAR_DROP_PERCENTAGE) u100))
+        (feeder-incentive (/ (* prize-amount FEEDER_INCENTIVE_PERCENTAGE) u100))
+        (dao-fee (/ (* prize-amount DAO_TREASURY_PERCENTAGE) u100))
         (combined-seed (keccak256 (concat seed
           (unwrap-panic (get-stacks-block-info? id-header-hash (- stacks-block-height u1)))
         )))
+      )
+      ;; Payout Feeder Incentive immediately
+      (if (> feeder-incentive u0)
+        (try! (as-contract (stx-transfer? feeder-incentive tx-sender tx-sender)))
+        true
+      )
+      ;; Payout DAO Treasury Fee immediately
+      (if (> dao-fee u0)
+        (try! (as-contract (stx-transfer? dao-fee tx-sender CONTRACT-OWNER)))
+        true
       )
       ;; Record draw (winner selection happens off-chain via TWAB query + seed)
       ;; In production, this would verify a VRF proof
       (map-set draw-history { draw-id: draw-id } {
         winner: tx-sender, ;; Placeholder: real implementation uses TWAB-weighted selection
-        prize-amount: prize-amount,
+        prize-amount: queen-bee-prize,
         stacks-block-height: stacks-block-height,
         claimed: false,
         seed: combined-seed,
@@ -177,12 +236,17 @@
 
       (var-set draw-counter draw-id)
       (var-set last-draw-block stacks-block-height)
+      (var-set nectar-drops-reserve
+        (+ (var-get nectar-drops-reserve) nectar-drops)
+      )
       (var-set total-yield u0)
 
       (print {
         event: "queen-bee-crowned",
         draw-id: draw-id,
-        prize-amount: prize-amount,
+        queen-bee-prize: queen-bee-prize,
+        nectar-drops-added: nectar-drops,
+        feeder-reward: feeder-incentive,
         stacks-block-height: stacks-block-height,
       })
       (ok draw-id)

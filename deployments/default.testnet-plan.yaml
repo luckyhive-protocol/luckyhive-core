@@ -20,52 +20,52 @@ plan:
     - id: 1
       transactions:
         - contract-publish:
-            contract-name: honeycomb-token
+            contract-name: honeycomb-token-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
             cost: 39000
-            path: contracts/honeycomb-token.clar
+            path: contracts/honeycomb-token-v3.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: twab-controller
+            contract-name: twab-controller-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
             cost: 72290
-            path: contracts/twab-controller.clar
+            path: contracts/twab-controller-v3.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: prize-pool
+            contract-name: prize-pool-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 92850
-            path: contracts/prize-pool.clar
+            cost: 113380
+            path: contracts/prize-pool-v3.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: auction-manager
+            contract-name: auction-manager-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 74340
-            path: contracts/auction-manager.clar
+            cost: 74370
+            path: contracts/auction-manager-v3.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: auth-provider
+            contract-name: auth-provider-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
             cost: 59230
-            path: contracts/auth-provider.clar
+            path: contracts/auth-provider-v3.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: governance
+            contract-name: governance-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 61300
-            path: contracts/governance.clar
+            cost: 61420
+            path: contracts/governance-v3.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: vault-factory
+            contract-name: vault-factory-v3
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 62010
-            path: contracts/vault-factory.clar
+            cost: 62040
+            path: contracts/vault-factory-v3.clar
             anchor-block-only: true
             clarity-version: 3
       epoch: "3.0"
