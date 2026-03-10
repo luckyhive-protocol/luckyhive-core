@@ -8,41 +8,41 @@ cache_dir = "./.cache"
 [[project.requirements]]
 contract_id = "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard"
 
-[contracts.honeycomb-token]
-path = "contracts/honeycomb-token.clar"
+[contracts.luckyhive-honeycomb]
+path = "contracts/luckyhive-honeycomb.clar"
 clarity_version = 3
 epoch = 3.0
 
-[contracts.twab-controller]
-path = "contracts/twab-controller.clar"
+[contracts.luckyhive-twab-controller]
+path = "contracts/luckyhive-twab-controller.clar"
 clarity_version = 3
 epoch = 3.0
 
-[contracts.prize-pool]
-path = "contracts/prize-pool.clar"
+[contracts.luckyhive-prize-pool]
+path = "contracts/luckyhive-prize-pool.clar"
 clarity_version = 3
 epoch = 3.0
-depends_on = ["honeycomb-token", "twab-controller"]
+depends_on = ["luckyhive-honeycomb", "luckyhive-twab-controller"]
 
-[contracts.vault-factory]
-path = "contracts/vault-factory.clar"
+[contracts.luckyhive-vault]
+path = "contracts/luckyhive-vault.clar"
 clarity_version = 3
 epoch = 3.0
-depends_on = ["prize-pool"]
+depends_on = ["luckyhive-prize-pool"]
 
-[contracts.auction-manager]
-path = "contracts/auction-manager.clar"
+[contracts.luckyhive-auction-manager]
+path = "contracts/luckyhive-auction-manager.clar"
 clarity_version = 3
 epoch = 3.0
-depends_on = ["prize-pool"]
+depends_on = ["luckyhive-prize-pool"]
 
-[contracts.governance]
-path = "contracts/governance.clar"
+[contracts.luckyhive-governance]
+path = "contracts/luckyhive-governance.clar"
 clarity_version = 3
 epoch = 3.0
-depends_on = ["prize-pool"]
+depends_on = ["luckyhive-prize-pool"]
 
-[contracts.auth-provider]
-path = "contracts/auth-provider.clar"
+[contracts.luckyhive-auth-provider]
+path = "contracts/luckyhive-auth-provider.clar"
 clarity_version = 3
 epoch = 3.0

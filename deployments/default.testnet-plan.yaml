@@ -20,52 +20,52 @@ plan:
     - id: 1
       transactions:
         - contract-publish:
-            contract-name: honeycomb-token-v3
+            contract-name: luckyhive-honeycomb
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
             cost: 39000
-            path: contracts/honeycomb-token-v3.clar
+            path: contracts/luckyhive-honeycomb.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: twab-controller-v3
+            contract-name: luckyhive-twab-controller
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
             cost: 72290
-            path: contracts/twab-controller-v3.clar
+            path: contracts/luckyhive-twab-controller.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: prize-pool-v3
+            contract-name: luckyhive-prize-pool
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 113380
-            path: contracts/prize-pool-v3.clar
+            cost: 120820
+            path: contracts/luckyhive-prize-pool.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: auction-manager-v3
+            contract-name: luckyhive-auction-manager
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 74370
-            path: contracts/auction-manager-v3.clar
+            cost: 74440
+            path: contracts/luckyhive-auction-manager.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: auth-provider-v3
+            contract-name: luckyhive-auth-provider
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
             cost: 59230
-            path: contracts/auth-provider-v3.clar
+            path: contracts/luckyhive-auth-provider.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: governance-v3
+            contract-name: luckyhive-governance
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 61420
-            path: contracts/governance-v3.clar
+            cost: 61700
+            path: contracts/luckyhive-governance.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: vault-factory-v3
+            contract-name: luckyhive-vault
             expected-sender: STKSZF15YGAE6X0M2H1JC09CRVPCK4YBHW083EJ9
-            cost: 62040
-            path: contracts/vault-factory-v3.clar
+            cost: 62110
+            path: contracts/luckyhive-vault.clar
             anchor-block-only: true
             clarity-version: 3
       epoch: "3.0"
