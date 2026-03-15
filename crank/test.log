@@ -1,0 +1,4 @@
+[dotenv@17.3.1] injecting env (5) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+--- LuckyHive Crank Bot Starting (Commit-Reveal Mode) ---
+Fetching Honeycomb holders...
+No bee holders found yet. Skipping draw.

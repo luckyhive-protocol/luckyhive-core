@@ -1,0 +1,1 @@
+const fs = require('fs'); const { execSync } = require('child_process'); const svg = fs.readFileSync('frontend/public/logo.svg', 'utf8'); require('sharp')(Buffer.from(svg)).jpeg().toFile('frontend/public/luckyhive-logo.jpg');

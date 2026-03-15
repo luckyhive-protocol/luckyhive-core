@@ -28,14 +28,13 @@
 
 (define-fungible-token honeycomb)
 (define-data-var token-uri (optional (string-utf8 256)) (some u"https://luckyhive.xyz/token/honeycomb.json"))
-(define-data-var authorized-minter principal CONTRACT-OWNER)
 
 ;; ============================================================
 ;; AUTHORIZATION
 ;; ============================================================
 
 (define-private (is-authorized-minter)
-  (is-eq contract-caller (var-get authorized-minter))
+  (is-eq contract-caller .luckyhive-prize-pool)
 )
 
 ;; ============================================================
@@ -105,13 +104,7 @@
 ;; ADMIN
 ;; ============================================================
 
-(define-public (set-authorized-minter (new-minter principal))
-  (begin
-    (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
-    (print { event: "minter-updated", old-minter: (var-get authorized-minter), new-minter: new-minter })
-    (ok (var-set authorized-minter new-minter))
-  )
-)
+
 
 (define-public (set-token-uri (new-uri (optional (string-utf8 256))))
   (begin

@@ -1,7 +1,11 @@
-;; vault-factory.clar
-;; Manages permissionless yield strategies for LuckyHive.
-;; Routes deposited assets to yield-generating sources (PoX stacking, sBTC Dual Stacking)
-;; and harvests yield back to the prize pool.
+;; luckyhive-vault.clar
+;; Yield source for LuckyHive Prize Pool.
+;;
+;; Phase 1 (Testnet): Admin seeds yield manually via seed-yield.
+;;   The vault accepts STX and forwards it to the prize pool as yield.
+;;
+;; Phase 2 (Mainnet): Integrates with StackingDAO (stSTX) for real
+;;   auto-compounding yield from PoX stacking rewards.
 
 ;; ============================================================
 ;; CONSTANTS
@@ -9,40 +13,27 @@
 
 (define-constant CONTRACT-OWNER tx-sender)
 (define-constant ERR-NOT-AUTHORIZED (err u4000))
-(define-constant ERR-VAULT-EXISTS (err u4001))
-(define-constant ERR-VAULT-NOT-FOUND (err u4002))
-(define-constant ERR-VAULT-INACTIVE (err u4003))
-(define-constant ERR-INVALID-AMOUNT (err u4004))
-(define-constant ERR-NO-YIELD (err u4005))
-(define-constant ERR-MAX-VAULTS (err u4006))
-
-(define-constant MAX-VAULTS u10)
+(define-constant ERR-INVALID-AMOUNT (err u4001))
+(define-constant ERR-PAUSED (err u4002))
 
 ;; ============================================================
 ;; STATE
 ;; ============================================================
 
-(define-data-var vault-counter uint u0)
-(define-data-var total-deployed uint u0)
-(define-data-var total-harvested uint u0)
+(define-data-var vault-paused bool false)
+(define-data-var total-seeded uint u0)       ;; Total STX seeded by admin
+(define-data-var total-forwarded uint u0)    ;; Total STX forwarded to prize pool
+(define-data-var pending-yield uint u0)      ;; STX waiting to be forwarded
 
-;; Vault registry
-(define-map vaults
-  { vault-id: uint }
+;; Track yield history per cycle
+(define-data-var seed-counter uint u0)
+(define-map seed-history
+  { seed-id: uint }
   {
-    name: (string-ascii 64),
-    vault-principal: principal,
-    is-active: bool,
-    deployed-amount: uint,
-    harvested-amount: uint,
-    registered-at: uint
+    seeder: principal,
+    amount: uint,
+    block-height: uint,
   }
-)
-
-;; Vault lookup by principal
-(define-map vault-by-principal
-  { vault-principal: principal }
-  { vault-id: uint }
 )
 
 ;; ============================================================
@@ -53,137 +44,103 @@
   (is-eq tx-sender CONTRACT-OWNER)
 )
 
-;; ============================================================
-;; PUBLIC: REGISTER VAULT
-;; ============================================================
-
-;; Register a new yield vault. In production, this would verify
-;; the contract code hash against a known template.
-(define-public (register-vault (name (string-ascii 64)) (vault-principal principal))
-  (begin
-    (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
-    (asserts! (is-none (map-get? vault-by-principal { vault-principal: vault-principal })) ERR-VAULT-EXISTS)
-    (asserts! (< (var-get vault-counter) MAX-VAULTS) ERR-MAX-VAULTS)
-
-    (let (
-      (vault-id (+ (var-get vault-counter) u1))
-    )
-      (map-set vaults
-        { vault-id: vault-id }
-        {
-          name: name,
-          vault-principal: vault-principal,
-          is-active: true,
-          deployed-amount: u0,
-          harvested-amount: u0,
-          registered-at: stacks-block-height
-        }
-      )
-      (map-set vault-by-principal
-        { vault-principal: vault-principal }
-        { vault-id: vault-id }
-      )
-      (var-set vault-counter vault-id)
-
-      (print {
-        event: "vault-registered",
-        vault-id: vault-id,
-        name: name,
-        vault-principal: vault-principal
-      })
-      (ok vault-id)
-    )
-  )
+(define-private (assert-not-paused)
+  (ok (asserts! (not (var-get vault-paused)) ERR-PAUSED))
 )
 
 ;; ============================================================
-;; PUBLIC: DEPLOY FUNDS
+;; PUBLIC: SEED YIELD (Phase 1 - manual yield injection)
 ;; ============================================================
 
-;; Deploy STX to a specific vault for yield generation.
-;; In production, this calls the vault contract's deposit function.
-(define-public (deploy-funds (vault-id uint) (amount uint))
+;; Admin deposits STX into the vault as simulated yield.
+;; This accumulates in pending-yield until forwarded.
+(define-public (seed-yield (amount uint))
   (begin
+    (try! (assert-not-paused))
     (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
     (asserts! (> amount u0) ERR-INVALID-AMOUNT)
 
-    (let (
-      (vault (unwrap! (map-get? vaults { vault-id: vault-id }) ERR-VAULT-NOT-FOUND))
-    )
-      (asserts! (get is-active vault) ERR-VAULT-INACTIVE)
+    ;; Transfer STX from admin to this vault contract
+    (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
 
-      ;; Update vault state
-      (map-set vaults
-        { vault-id: vault-id }
-        (merge vault { deployed-amount: (+ (get deployed-amount vault) amount) })
-      )
-      (var-set total-deployed (+ (var-get total-deployed) amount))
+    ;; Update accounting
+    (let ((seed-id (+ (var-get seed-counter) u1)))
+      (var-set total-seeded (+ (var-get total-seeded) amount))
+      (var-set pending-yield (+ (var-get pending-yield) amount))
+      (var-set seed-counter seed-id)
 
-      (print {
-        event: "funds-deployed",
-        vault-id: vault-id,
+      (map-set seed-history { seed-id: seed-id } {
+        seeder: tx-sender,
         amount: amount,
-        total-deployed: (+ (get deployed-amount vault) amount)
+        block-height: stacks-block-height,
       })
-      (ok true)
-    )
-  )
-)
-
-;; ============================================================
-;; PUBLIC: HARVEST YIELD
-;; ============================================================
-
-;; Harvest yield from a vault and route it to the prize pool.
-;; In production, this calls the vault's withdraw-yield function
-;; and forwards the proceeds to prize-pool.add-yield.
-(define-public (harvest-yield (vault-id uint) (yield-amount uint))
-  (begin
-    (asserts! (> yield-amount u0) ERR-NO-YIELD)
-
-    (let (
-      (vault (unwrap! (map-get? vaults { vault-id: vault-id }) ERR-VAULT-NOT-FOUND))
-    )
-      (asserts! (get is-active vault) ERR-VAULT-INACTIVE)
-
-      ;; Forward yield to prize pool
-      (try! (contract-call? .luckyhive-prize-pool add-yield yield-amount))
-
-      ;; Update vault state
-      (map-set vaults
-        { vault-id: vault-id }
-        (merge vault { harvested-amount: (+ (get harvested-amount vault) yield-amount) })
-      )
-      (var-set total-harvested (+ (var-get total-harvested) yield-amount))
 
       (print {
-        event: "yield-harvested",
-        vault-id: vault-id,
-        yield-amount: yield-amount,
-        total-harvested: (+ (get harvested-amount vault) yield-amount)
+        event: "yield-seeded",
+        seed-id: seed-id,
+        seeder: tx-sender,
+        amount: amount,
+        pending-yield: (var-get pending-yield),
       })
-      (ok true)
+      (ok seed-id)
     )
   )
 )
 
 ;; ============================================================
-;; PUBLIC: DEACTIVATE VAULT
+;; PUBLIC: FORWARD YIELD TO PRIZE POOL
 ;; ============================================================
 
-(define-public (deactivate-vault (vault-id uint))
+;; Forwards all pending yield to the prize pool.
+;; Can be called by admin or an automated bot.
+(define-public (forward-yield)
+  (let (
+      (yield-to-forward (var-get pending-yield))
+    )
+    (begin
+      (try! (assert-not-paused))
+      (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
+      (asserts! (> yield-to-forward u0) ERR-INVALID-AMOUNT)
+
+      ;; Transfer STX from vault to prize pool via add-yield
+      ;; The vault contract is authorized to call add-yield
+      (try! (as-contract (contract-call? .luckyhive-prize-pool add-yield yield-to-forward)))
+
+      ;; Update accounting
+      (var-set pending-yield u0)
+      (var-set total-forwarded (+ (var-get total-forwarded) yield-to-forward))
+
+      (print {
+        event: "yield-forwarded",
+        amount: yield-to-forward,
+        total-forwarded: (var-get total-forwarded),
+      })
+      (ok yield-to-forward)
+    )
+  )
+)
+
+;; ============================================================
+;; PUBLIC: SEED AND FORWARD (convenience)
+;; ============================================================
+
+;; Single-call: seed yield and immediately forward it to the prize pool.
+(define-public (seed-and-forward (amount uint))
+  (begin
+    (try! (seed-yield amount))
+    (try! (forward-yield))
+    (ok amount)
+  )
+)
+
+;; ============================================================
+;; ADMIN
+;; ============================================================
+
+(define-public (set-paused (paused bool))
   (begin
     (asserts! (is-contract-owner) ERR-NOT-AUTHORIZED)
-    (let (
-      (vault (unwrap! (map-get? vaults { vault-id: vault-id }) ERR-VAULT-NOT-FOUND))
-    )
-      (map-set vaults
-        { vault-id: vault-id }
-        (merge vault { is-active: false })
-      )
-      (print { event: "vault-deactivated", vault-id: vault-id })
-      (ok true)
-    )
+    (ok (var-set vault-paused paused))
   )
 )
 
@@ -191,18 +148,16 @@
 ;; READ-ONLY
 ;; ============================================================
 
-(define-read-only (get-vault (vault-id uint))
-  (ok (map-get? vaults { vault-id: vault-id }))
-)
-
-(define-read-only (get-vault-count)
-  (ok (var-get vault-counter))
-)
-
-(define-read-only (get-factory-stats)
+(define-read-only (get-vault-stats)
   (ok {
-    total-vaults: (var-get vault-counter),
-    total-deployed: (var-get total-deployed),
-    total-harvested: (var-get total-harvested)
+    total-seeded: (var-get total-seeded),
+    total-forwarded: (var-get total-forwarded),
+    pending-yield: (var-get pending-yield),
+    seed-count: (var-get seed-counter),
+    is-paused: (var-get vault-paused),
   })
+)
+
+(define-read-only (get-seed-info (seed-id uint))
+  (ok (map-get? seed-history { seed-id: seed-id }))
 )
