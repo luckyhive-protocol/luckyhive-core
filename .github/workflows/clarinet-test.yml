@@ -17,10 +17,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Clarinet
-        uses: hirosystems/setup-clarinet@v1
-        with:
-          version: "2.0.0" # Adjust based on the targeted Stacks node release
+      - name: Install Clarinet
+        run: |
+          curl -L https://github.com/hirosystems/clarinet/releases/download/v2.9.0/clarinet-linux-x64-glibc.tar.gz | tar xz
+          chmod +x clarinet
+          sudo mv clarinet /usr/local/bin/
 
       - name: Verify Clarinet Installation
         run: clarinet --version
@@ -28,11 +29,12 @@ jobs:
       - name: Code Syntax and Logic Check
         run: clarinet check
 
-      - name: Run Clarinet Tests with Coverage
-        run: clarinet test --coverage
+      - name: Run Clarinet Tests
+        run: clarinet test
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: clarinet-coverage
           path: coverage/

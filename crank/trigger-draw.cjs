@@ -1,29 +1,27 @@
-import { 
-  makeContractCall, 
-  broadcastTransaction, 
-  PostConditionMode, 
-  uintCV, 
-  principalCV, 
-  bufferCV, 
+'use strict';
+
+const {
+  makeContractCall,
+  broadcastTransaction,
+  PostConditionMode,
+  uintCV,
+  principalCV,
+  bufferCV,
   listCV,
   cvToJSON,
-  fetchCallReadOnlyFunction
-} from '@stacks/transactions';
-import { STACKS_MAINNET, STACKS_TESTNET } from '@stacks/network';
-import { randomBytes } from 'crypto';
-import { keccak_256 } from '@noble/hashes/sha3';
-import axios from 'axios';
-import * as dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
+  fetchCallReadOnlyFunction,
+} = require('@stacks/transactions');
+const { STACKS_MAINNET, STACKS_TESTNET } = require('@stacks/network');
+const { randomBytes } = require('crypto');
+const { keccak_256 } = require('@noble/hashes/sha3');
+const axios = require('axios').default;
+const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config();
 
 // --- Configuration & Security Validation ---
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const PRIVATE_KEY = process.env.STX_PRIVATE_KEY || '';
 const NETWORK_TYPE = process.env.STX_NETWORK || 'testnet';
@@ -35,11 +33,11 @@ const STATE_FILE = path.join(__dirname, '.crank-state.json');
 const axiosInstance = axios.create({ timeout: 30000 });
 
 function validateEnvironment() {
-  const errors: string[] = [];
+  const errors = [];
   if (!PRIVATE_KEY || PRIVATE_KEY.length < 64) errors.push('STX_PRIVATE_KEY is missing or invalid');
   if (!['mainnet', 'testnet'].includes(NETWORK_TYPE)) errors.push('STX_NETWORK must be mainnet or testnet');
   if (!CONTRACT_ADDRESS.startsWith('S')) errors.push('CONTRACT_ADDRESS must be a valid Stacks address');
-  
+
   if (errors.length > 0) {
     console.error('Environment Validation Failed:');
     errors.forEach(err => console.error(`- ${err}`));
@@ -53,10 +51,10 @@ const network = NETWORK_TYPE === 'mainnet' ? STACKS_MAINNET : STACKS_TESTNET;
 
 // --- Helper Functions ---
 
-async function getAccountNonce(address: string) {
+async function getAccountNonce(address) {
   try {
     const response = await fetch(`${network.client.baseUrl}/extended/v1/address/${address}/nonces`);
-    const data: any = await response.json();
+    const data = await response.json();
     return data.possible_next_nonce;
   } catch (error) {
     console.error('Error fetching nonce:', error);
@@ -74,22 +72,20 @@ async function isDrawDue() {
       network,
       senderAddress: CONTRACT_ADDRESS,
     });
-    
+
     const jsonResult = cvToJSON(result);
-    // get-hive-stats returns (ok tuple). cvToJSON on ResponseOk gives .value
-    // If it's a tuple, .value has a .value property containing the mapping
-    const stats: any = jsonResult.value.value || jsonResult.value;
-    
+    // get-hive-stats returns (ok tuple). Structure: { value: { value: { ... } } }
+    const stats = jsonResult.value && jsonResult.value.value ? jsonResult.value.value : jsonResult.value;
+
     const nextDrawBlock = parseInt(stats['next-draw-block'].value);
     const totalYield = parseInt(stats['total-yield'].value);
 
-    // Get current block height
     const infoRes = await fetch(`${network.client.baseUrl}/v2/info`);
-    const infoData: any = await infoRes.json();
+    const infoData = await infoRes.json();
     const currentHeight = infoData.stacks_tip_height;
-    
+
     console.log(`Current Height: ${currentHeight}, Next Draw: ${nextDrawBlock}, Total Yield: ${totalYield}`);
-    
+
     if (totalYield <= 0) {
       console.log('No yield available for the draw.');
       return false;
@@ -98,17 +94,17 @@ async function isDrawDue() {
     return currentHeight >= nextDrawBlock;
   } catch (error) {
     console.error('Error checking draw eligibility:', error);
-    return false; // Error on the side of caution
+    return false;
   }
 }
 
 // Derives active depositors from transaction history instead of the Hiro FT holders
 // index, which does not reliably index testnet fungible tokens.
-async function getActiveDepositors(): Promise<{ address: string }[]> {
+async function getActiveDepositors() {
   console.log('Fetching active depositors from prize pool transaction history...');
   try {
-    const seen = new Set<string>();
-    const candidates: string[] = [];
+    const seen = new Set();
+    const candidates = [];
     
     let offset = 0;
     const limit = 50;
@@ -118,8 +114,8 @@ async function getActiveDepositors(): Promise<{ address: string }[]> {
       const txRes = await fetch(
         `${network.client.baseUrl}/extended/v1/address/${CONTRACT_ADDRESS}.${PRIZE_POOL_NAME}/transactions?limit=${limit}&offset=${offset}`
       );
-      const txData: any = await txRes.json();
-      const txs: any[] = txData.results || [];
+      const txData = await txRes.json();
+      const txs = txData.results || [];
 
       if (txs.length === 0) {
         hasMore = false;
@@ -130,9 +126,9 @@ async function getActiveDepositors(): Promise<{ address: string }[]> {
         if (
           tx.tx_type === 'contract_call' &&
           tx.tx_status === 'success' &&
-          tx.contract_call?.function_name === 'store-in-hive'
+          tx.contract_call && tx.contract_call.function_name === 'store-in-hive'
         ) {
-          const addr: string = tx.sender_address;
+          const addr = tx.sender_address;
           if (addr && !seen.has(addr)) {
             seen.add(addr);
             candidates.push(addr);
@@ -153,7 +149,7 @@ async function getActiveDepositors(): Promise<{ address: string }[]> {
     }
 
     // Filter to only addresses with a current positive deposit balance
-    const active: { address: string }[] = [];
+    const active = [];
     for (const addr of candidates) {
       try {
         const result = await fetchCallReadOnlyFunction({
@@ -165,7 +161,9 @@ async function getActiveDepositors(): Promise<{ address: string }[]> {
           senderAddress: CONTRACT_ADDRESS,
         });
         const json = cvToJSON(result);
-        const amount = parseInt(json?.value?.value?.amount?.value || '0');
+        // get-user-deposit returns (ok { amount: uint }). Structure: { value: { value: { amount: { value: "..." } } } }
+        const inner = json && json.value && json.value.value ? json.value.value : (json && json.value ? json.value : {});
+        const amount = parseInt(inner && inner.amount ? inner.amount.value : '0');
         if (amount > 0) {
           active.push({ address: addr });
         }
@@ -182,7 +180,7 @@ async function getActiveDepositors(): Promise<{ address: string }[]> {
   }
 }
 
-async function getTwabBalance(address: string) {
+async function getTwabBalance(address) {
   try {
     const result = await fetchCallReadOnlyFunction({
       contractAddress: CONTRACT_ADDRESS,
@@ -193,23 +191,17 @@ async function getTwabBalance(address: string) {
       senderAddress: CONTRACT_ADDRESS,
     });
     const json = cvToJSON(result);
-    return parseInt(json.value.value);
-  } catch (e) {
+    // get-current-balance returns a uint directly or wrapped
+    const val = json && json.value && json.value.value !== undefined ? json.value.value : (json && json.value !== undefined ? json.value : '0');
+    return parseInt(val) || 0;
+  } catch {
     return 0;
   }
 }
 
 // --- State Management ---
 
-interface CrankState {
-  secretHex: string;
-  commitHashHex: string;
-  queenBee: string;
-  dripWinners: string[];
-  commitBlockHeight: number;
-}
-
-function loadState(): CrankState | null {
+function loadState() {
   if (fs.existsSync(STATE_FILE)) {
     try {
       const data = fs.readFileSync(STATE_FILE, 'utf-8');
@@ -222,7 +214,7 @@ function loadState(): CrankState | null {
   return null;
 }
 
-function saveState(state: CrankState) {
+function saveState(state) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
@@ -236,19 +228,18 @@ function clearState() {
 
 async function runCrank() {
   console.log('--- LuckyHive Crank Bot Starting (Commit-Reveal Mode) ---');
-  
-  const { getAddressFromPrivateKey } = await import('@stacks/transactions');
-  const senderAddress = getAddressFromPrivateKey(PRIVATE_KEY, NETWORK_TYPE as any);
-  
+
+  const { getAddressFromPrivateKey } = require('@stacks/transactions');
+  const senderAddress = getAddressFromPrivateKey(PRIVATE_KEY, NETWORK_TYPE);
+
   const currentState = loadState();
 
-  // Pick up current block height natively
   let currentHeight = 0;
   try {
     const infoRes = await fetch(`${network.client.baseUrl}/v2/info`);
-    const infoData: any = await infoRes.json();
+    const infoData = await infoRes.json();
     currentHeight = infoData.stacks_tip_height;
-  } catch(e) {
+  } catch {
     console.error('Failed to get tip height from Hiro API');
     return;
   }
@@ -256,30 +247,24 @@ async function runCrank() {
   // --- PHASE 2: REVEAL ---
   if (currentState) {
     console.log(`Found active commitment from block ${currentState.commitBlockHeight}. Current block: ${currentHeight}`);
-    
-    // Check if 2 blocks have passed
+
     if (currentHeight < currentState.commitBlockHeight + 2) {
-      console.log(`Waiting for ${currentState.commitBlockHeight + 2 - currentHeight} more blocks to fulfill the 2-block delay requirement for provable fairness.`);
-      return; // Wait longer
+      console.log(`Waiting for ${currentState.commitBlockHeight + 2 - currentHeight} more blocks for the 2-block delay.`);
+      return;
     }
 
-    // Checking if we waited too long (deadline is 10 blocks)
     if (currentHeight > currentState.commitBlockHeight + 10) {
       console.log('Commitment expired (past 10 block deadline). Clearing state to start fresh.');
       clearState();
-      // We could call clear-expired-commitment on-chain here but the contract requires it only to clear the map.
-      // Next time it will just be overwritten since the check allows creating a new one if the old one is fulfilled or expired.
-      // Actually wait, let's just let it naturally run Phase 1 next tick.
-      return; 
+      return;
     }
 
     console.log(`Ready to reveal! Nominating Queen Bee: ${currentState.queenBee}`);
-    
+
     try {
       const nonce = await getAccountNonce(senderAddress);
       const secretBuff = Buffer.from(currentState.secretHex, 'hex');
 
-      // 1. Reveal and Award
       console.log(`Broadcasting reveal-and-award (Nonce: ${nonce})...`);
       const revealTx = await makeContractCall({
         contractAddress: CONTRACT_ADDRESS,
@@ -288,13 +273,12 @@ async function runCrank() {
         functionArgs: [bufferCV(secretBuff), principalCV(currentState.queenBee)],
         senderKey: PRIVATE_KEY,
         network,
-        nonce: nonce,
+        nonce,
         postConditionMode: PostConditionMode.Allow,
       });
       const revealResult = await broadcastTransaction({ transaction: revealTx, network });
       console.log('Reveal result:', revealResult.txid ? `Success: ${revealResult.txid}` : revealResult);
 
-      // 2. Drips
       if (currentState.dripWinners && currentState.dripWinners.length > 0) {
         console.log(`Broadcasting drips (Nonce: ${nonce + 1})...`);
         const dripTx = await makeContractCall({
@@ -303,7 +287,7 @@ async function runCrank() {
           functionName: 'distribute-nectar-drops',
           functionArgs: [
             listCV(currentState.dripWinners.map(w => principalCV(w))),
-            uintCV(1000000) // 1 STX per bee
+            uintCV(1000000),
           ],
           senderKey: PRIVATE_KEY,
           network,
@@ -317,9 +301,9 @@ async function runCrank() {
       console.log('Draw completely fulfilled. Clearing local state.');
       clearState();
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fatal Error during broadcast:');
-      const safeError = error.message?.replace(PRIVATE_KEY, '[REDACTED_KEY]') || 'Unknown Error';
+      const safeError = (error.message || 'Unknown Error').replace(PRIVATE_KEY, '[REDACTED_KEY]');
       console.error(safeError);
     }
     return;
@@ -337,7 +321,7 @@ async function runCrank() {
     return;
   }
 
-  const candidates: { address: string; weight: number }[] = [];
+  const candidates = [];
   let totalWeight = 0;
 
   for (const holder of holders) {
@@ -349,12 +333,12 @@ async function runCrank() {
   }
 
   if (candidates.length === 0) {
-    console.log('No active bees with balance found.');
+    console.log('No active bees with TWAB balance found.');
     return;
   }
 
-  // Pre-calculate the outcome using TWAB weighting
-  let queenBee: string = candidates[0].address;
+  // TWAB-weighted winner selection
+  let queenBee = candidates[0].address;
   let random = Math.random() * totalWeight;
   for (const candidate of candidates) {
     random -= candidate.weight;
@@ -364,22 +348,20 @@ async function runCrank() {
     }
   }
 
-  // Drip Selection
   const poolForDrips = candidates.filter(c => c.address !== queenBee);
-  const dripWinners: string[] = [];
+  const dripWinners = [];
   const dripCount = Math.min(MINI_WINNER_COUNT, poolForDrips.length);
   const shuffled = [...poolForDrips].sort(() => 0.5 - Math.random());
   for (let i = 0; i < dripCount; i++) dripWinners.push(shuffled[i].address);
 
   console.log(`Winners pre-selected. Queen Bee: ${queenBee.substring(0, 10)}...`);
 
-  // Create commit secret
   const secret = randomBytes(32);
   const commitHash = Buffer.from(keccak_256(secret));
 
   try {
     const nonce = await getAccountNonce(senderAddress);
-    
+
     console.log(`Broadcasting commit-draw-request (Nonce: ${nonce})...`);
     const commitTx = await makeContractCall({
       contractAddress: CONTRACT_ADDRESS,
@@ -388,14 +370,12 @@ async function runCrank() {
       functionArgs: [bufferCV(commitHash)],
       senderKey: PRIVATE_KEY,
       network,
-      nonce: nonce,
+      nonce,
       postConditionMode: PostConditionMode.Allow,
     });
     const commitResult = await broadcastTransaction({ transaction: commitTx, network });
     console.log('Commit result:', commitResult.txid ? `Success: ${commitResult.txid}` : commitResult);
 
-    // Only save state if commit succeeded (assumes broadcast doesn't strictly fail on network)
-    // Wait for the tx to actually mine, but for crank we just assume it enters mempool fine
     if (commitResult.txid) {
       saveState({
         secretHex: secret.toString('hex'),
@@ -404,12 +384,12 @@ async function runCrank() {
         dripWinners,
         commitBlockHeight: currentHeight,
       });
-      console.log(`Commitment saved to disk. Exiting for now. Will reveal in ~2 blocks.`);
+      console.log('Commitment saved to disk. Exiting for now. Will reveal in ~2 blocks.');
     }
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Fatal Error during commit broadcast:');
-    const safeError = error.message?.replace(PRIVATE_KEY, '[REDACTED_KEY]') || 'Unknown Error';
+    const safeError = (error.message || 'Unknown Error').replace(PRIVATE_KEY, '[REDACTED_KEY]');
     console.error(safeError);
   }
 }
