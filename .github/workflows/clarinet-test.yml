@@ -27,7 +27,7 @@ jobs:
         run: clarinet --version
 
       - name: Code Syntax and Logic Check
-        run: echo "n" | clarinet check
+        run: echo "y" | clarinet check
 
       - name: Run Clarinet Tests
         run: clarinet test
