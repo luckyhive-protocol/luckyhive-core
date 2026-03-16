@@ -21,14 +21,18 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Lint Check
         run: npm run lint
